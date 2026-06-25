@@ -1,12 +1,9 @@
-import os
 import copy
 import json
-import argparse
 import logging
 from docx import Document
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("layout_restoration")
+logger = logging.getLogger("docx_translator.layout")
 
 def copy_xml_properties(src_element, tgt_element, pr_name):
     """Safely copies XML properties element by deepcopying."""
@@ -34,11 +31,12 @@ def copy_xml_properties(src_element, tgt_element, pr_name):
             else:
                 tgt_element.insert(0, copy.deepcopy(src_pr))
 
-def restore_layouts(src_doc_path, tgt_doc_path, output_doc_path, test_mode=False):
-    logger.info(f"Opening original document: {src_doc_path}")
+def restore_layouts(src_doc_path, tgt_doc_path, output_doc_path, test_mode=False, report_path=None):
+    """Restores original document layouts and table widths onto the localized document."""
+    logger.info(f"Opening original template document: {src_doc_path}")
     src_doc = Document(src_doc_path)
     
-    logger.info(f"Opening localized document: {tgt_doc_path}")
+    logger.info(f"Opening translated/localized document: {tgt_doc_path}")
     tgt_doc = Document(tgt_doc_path)
     
     report = {
@@ -61,7 +59,7 @@ def restore_layouts(src_doc_path, tgt_doc_path, output_doc_path, test_mode=False
         src_rows_len = len(src_table.rows)
         tgt_rows_len = len(tgt_table.rows)
         
-        # We also inspect col count from first row
+        # Inspect col count from first row
         src_cols_len = len(src_table.rows[0].cells) if src_rows_len > 0 else 0
         tgt_cols_len = len(tgt_table.rows[0].cells) if tgt_rows_len > 0 else 0
         
@@ -79,7 +77,7 @@ def restore_layouts(src_doc_path, tgt_doc_path, output_doc_path, test_mode=False
             from docx.oxml import parse_xml
             from docx.oxml.ns import nsdecls
             
-            # Ensure table layout is set to fixed to prevent auto-fit behavior on Thai text
+            # Ensure table layout is set to fixed to prevent auto-fit behavior on foreign text
             tblPr = tgt_table._tbl.tblPr
             tblLayout = tblPr.first_child_found_in("w:tblLayout")
             if tblLayout is not None:
@@ -92,8 +90,6 @@ def restore_layouts(src_doc_path, tgt_doc_path, output_doc_path, test_mode=False
             # Copy table column widths definition (tblGrid)
             copy_xml_properties(src_table._tbl, tgt_table._tbl, "tblGrid")
             
-
-                
             # Copy column widths definition
             for col_idx in range(min(len(src_table.columns), len(tgt_table.columns))):
                 tgt_table.columns[col_idx].width = src_table.columns[col_idx].width
@@ -124,8 +120,6 @@ def restore_layouts(src_doc_path, tgt_doc_path, output_doc_path, test_mode=False
                     
                     # Verify text remains unchanged
                     if tgt_cell.text != original_txt:
-                        # If XML copying somehow affected paragraphs (should not, as tcPr is a child element of tc,
-                        # not containing paragraphs), log a mismatch error
                         logger.error(f"Text mismatch detected in Table {t_idx}, Row {r_idx}, Cell {c_idx}")
                         report["errors"].append({
                             "table_index": t_idx,
@@ -135,7 +129,7 @@ def restore_layouts(src_doc_path, tgt_doc_path, output_doc_path, test_mode=False
                         })
             
             report["tables_processed"] += 1
-            logger.info(f"Successfully restored table layout for Table {t_idx}.")
+            logger.debug(f"Successfully restored table layout for Table {t_idx}.")
             
         except Exception as e:
             logger.error(f"Failed to restore layout for Table {t_idx}: {e}")
@@ -149,23 +143,13 @@ def restore_layouts(src_doc_path, tgt_doc_path, output_doc_path, test_mode=False
     logger.info(f"Saving fixed layout document to: {output_doc_path}")
     tgt_doc.save(output_doc_path)
     
-    # Save report
-    report_path = "layout_restore_report.json"
-    with open(report_path, "w", encoding="utf-8") as f:
-        json.dump(report, f, indent=2)
-    logger.info(f"Restoration report saved to {report_path}")
+    # Save report if path provided
+    if report_path:
+        try:
+            with open(report_path, "w", encoding="utf-8") as f:
+                json.dump(report, f, indent=2)
+            logger.info(f"Restoration report saved to {report_path}")
+        except Exception as e:
+            logger.warning(f"Could not save restoration report: {e}")
+            
     return report
-
-def main():
-    parser = argparse.ArgumentParser(description="DOCX Table Layout Restoration Step")
-    parser.add_argument("--src", default="SMENFP1.docx", help="Original template file")
-    parser.add_argument("--tgt", default="SMENFP1_th.docx", help="Localized file to apply layouts to")
-    parser.add_argument("--out", default="SMENFP1_th_fixed.docx", help="Output fixed file")
-    parser.add_argument("--test-layout", action="store_true", help="Process only the first table to test layouts")
-    
-    args = parser.parse_args()
-    
-    restore_layouts(args.src, args.tgt, args.out, test_mode=args.test_layout)
-
-if __name__ == "__main__":
-    main()
