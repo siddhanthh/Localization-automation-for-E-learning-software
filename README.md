@@ -1,6 +1,11 @@
 # DOCX Document Translator
 
-An enterprise-grade, high-performance Python utility designed to translate specific columns in DOCX document tables while maintaining the exact original layout and styles.
+An enterprise-grade, high-performance Python utility designed to translate specific columns in DOCX document tables while maintaining the exact original layout and styles. This tool is optimized for localizing e-learning modules exported from **Articulate Storyline** or **Articulate Rise 360**.
+
+### Articulate E-Learning Localization Workflow
+1. **Export**: Export your translation document from Articulate Storyline or Rise 360 as a `.docx` file.
+2. **Translate**: Run this utility pointing to the exported `.docx` file and specifying the desired target language. The tool parses the tables, translates only the target column (default header `"Translation"`), and maintains all formatting and styling configurations.
+3. **Import**: Import the resulting translated `.docx` file back into Articulate Storyline or Rise 360 to instantly update your course slides and contents.
 
 ## Features
 
