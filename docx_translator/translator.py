@@ -56,12 +56,31 @@ class RateLimiter:
                 time.sleep(self.delay - elapsed)
             self.last_request_time = time.time()
 
+def resolve_language_code(lang):
+    """Resolves language names (e.g. 'spanish') to standard ISO codes (e.g. 'es')."""
+    if not lang:
+        return lang
+    
+    lang_lower = lang.lower().strip()
+    
+    try:
+        from deep_translator import GoogleTranslator
+        langs_dict = GoogleTranslator().get_supported_languages(as_dict=True)
+        if lang_lower in langs_dict:
+            return langs_dict[lang_lower]
+        if lang_lower in langs_dict.values():
+            return lang_lower
+    except Exception:
+        pass
+        
+    return lang_lower
+
 class TranslatorBackend:
     """Wrapper to support multiple translation backends dynamically."""
     def __init__(self, config, target_lang="th", source_lang="en"):
         self.config = config
-        self.target_lang = target_lang.lower()
-        self.source_lang = source_lang.lower()
+        self.target_lang = resolve_language_code(target_lang)
+        self.source_lang = resolve_language_code(source_lang)
         self.backend_type = config.translation_backend
         
         # Initialize Rate Limiter
@@ -88,7 +107,8 @@ class TranslatorBackend:
             return True
 
         # Check script pattern for target language to prevent re-translation
-        script_pattern = SCRIPT_PATTERNS.get(self.target_lang)
+        lang_base = self.target_lang.split('-')[0]
+        script_pattern = SCRIPT_PATTERNS.get(lang_base) or SCRIPT_PATTERNS.get(self.target_lang)
         if script_pattern and script_pattern.search(text):
             return True
 

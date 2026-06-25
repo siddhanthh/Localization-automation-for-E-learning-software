@@ -71,7 +71,7 @@ def main():
     
     pipeline = LocalizationPipeline(
         config=config,
-        target_lang="es",
+        target_lang="Spanish",
         source_lang="en",
         tm_path="test_tm.json",
         glossary_path="test_glossary.json"
