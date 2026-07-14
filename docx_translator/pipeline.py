@@ -85,12 +85,16 @@ class LocalizationPipeline:
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 "status": "translated"
             }
-        self._save_tm()
 
-    def scan_translation_cells(self, doc_path, column_header="Translation", limit_tables=None, limit_cells=None):
+
+    def scan_translation_cells(self, doc_or_path, column_header="Translation", limit_tables=None, limit_cells=None):
         """Finds all target cells in the specified column of all tables."""
-        doc = Document(doc_path)
+        if isinstance(doc_or_path, str):
+            doc = Document(doc_or_path)
+        else:
+            doc = doc_or_path
         cells_to_process = []
+
         
         table_count = 0
         cell_count = 0
@@ -248,28 +252,47 @@ class LocalizationPipeline:
                         except Exception as ex:
                             logger.error(f"Failed to translate fallback run '{run.text}': {ex}")
 
-    def translate_document(self, input_path, output_path, column_header="Translation", limit_tables=None, limit_cells=None, review_report_path=None):
-        """Translate document cells, verify integrity, and restore layout in one unified step."""
-        cells, _ = self.scan_translation_cells(input_path, column_header, limit_tables, limit_cells)
+    def translate_document(self, input_path, output_path, column_header="Translation", limit_tables=None, limit_cells=None, review_report_path=None, progress_callback=None):
+        """Translate document cells, verify integrity, and restore layout in one unified step.
         
-        logger.info(f"Starting translation of {len(cells)} cells...")
+        Args:
+            progress_callback: Optional callable(current, total, stage_text) for progress reporting.
+        """
+        doc = Document(input_path)
+        cells, _ = self.scan_translation_cells(doc, column_header, limit_tables, limit_cells)
+        
+        total_cells = len(cells)
+        # Total steps: cells for translation + cells for writing + 2 (verify + layout restore)
+        total_steps = total_cells + total_cells + 2
+        completed = [0]  # mutable counter for thread-safe incrementing
+        
+        def report_progress(stage_text):
+            completed[0] += 1
+            if progress_callback:
+                progress_callback(completed[0], total_steps, stage_text)
+        
+        logger.info(f"Starting translation of {total_cells} cells...")
         
         # Concurrently fetch translations to pre-populate translation memory
         def process_cell(cell_info):
             text = cell_info["cell_text"]
             if self.translator.should_skip_translation(text):
+                report_progress("Skipped (already in target language)")
                 return
             
             # Check TM/glossary first
             if self.lookup_translation(text):
+                report_progress("Found in translation memory")
                 return
                 
             context = f"Table header: {cell_info['header']}"
             try:
                 translated = self.translator.translate(text, context)
                 self.add_to_tm(text, translated, context)
+                report_progress(f"Translated cell")
             except Exception as e:
                 logger.error(f"Error translating cell: {e}")
+                report_progress("Translation error")
 
         # Threaded run for performance
         num_workers = self.config.concurrency.get("num_workers", 8)
@@ -282,14 +305,18 @@ class LocalizationPipeline:
             for c in cells:
                 process_cell(c)
                 
+        # Save TM once at the end of translation block
+        self._save_tm()
+                
         # Copy original document to temp location for translating text runs
         temp_translated_path = output_path + ".tmp_trans"
         
         logger.info("Applying translations to document structure...")
-        doc = Document(input_path)
+        if progress_callback:
+            progress_callback(completed[0], total_steps, "Applying translations to document...")
         
-        # Scan again and apply run-by-run translation on target document using cached TM
-        cells_to_write, _ = self.scan_translation_cells(input_path, column_header, limit_tables, limit_cells)
+        # Scan again (using the already loaded `doc`) and apply run-by-run translation on target document using cached TM
+        cells_to_write, _ = self.scan_translation_cells(doc, column_header, limit_tables, limit_cells)
         
         for c in cells_to_write:
             t_idx = c["table_index"]
@@ -306,10 +333,12 @@ class LocalizationPipeline:
                 target_cell = doc.tables[t_idx].rows[r_idx].cells[translation_col_idx]
                 for paragraph in target_cell.paragraphs:
                     self._translate_with_runs(paragraph, context=f"Table: {t_idx}, Row: {r_idx}")
+            report_progress(f"Applied translations to row {r_idx}")
                     
         doc.save(temp_translated_path)
         
         # Verify structure
+        report_progress("Verifying document integrity...")
         if not self.verify_document_integrity(input_path, temp_translated_path):
             logger.error("Document structure check failed! Aborting translation.")
             if os.path.exists(temp_translated_path):
@@ -317,6 +346,7 @@ class LocalizationPipeline:
             return False
 
         # Apply formatting and layouts to the translated document
+        report_progress("Restoring document layouts...")
         logger.info("Finalizing document formatting...")
         restore_layouts(input_path, temp_translated_path, output_path)
         
@@ -325,6 +355,7 @@ class LocalizationPipeline:
             os.remove(temp_translated_path)
             
         logger.info(f"Translation complete! Saved output to {output_path}")
+
 
         # Optional review report
         if review_report_path:

@@ -8,8 +8,9 @@ __pycache__/
 
 # Distribution / packaging
 build/
-develop-eggs/
 dist/
+!dist/DOCX_Localizer.exe
+develop-eggs/
 downloads/
 eggs/
 .eggs/
@@ -24,6 +25,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+*.spec
 
 # Virtual Environment
 venv/

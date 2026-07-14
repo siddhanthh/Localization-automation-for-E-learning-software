@@ -37,7 +37,7 @@ SCRIPT_PATTERNS = {
 }
 
 class RateLimiter:
-    """Centralized rate controller to enforce requests-per-minute limits."""
+    """Centralized rate controller to enforce requests-per-minute limits across multiple threads."""
     def __init__(self, requests_per_minute=60, backoff_factor=2.0, max_retries=5):
         self.requests_per_minute = requests_per_minute
         self.delay = 60.0 / requests_per_minute if requests_per_minute > 0 else 0
@@ -51,10 +51,23 @@ class RateLimiter:
             return
         with self.lock:
             now = time.time()
-            elapsed = now - self.last_request_time
-            if elapsed < self.delay:
-                time.sleep(self.delay - elapsed)
-            self.last_request_time = time.time()
+            # Calculate when the next request is allowed to start
+            next_allowed = self.last_request_time + self.delay
+            if now < next_allowed:
+                sleep_time = next_allowed - now
+                # Update last request time to the future point when this request starts
+                self.last_request_time = next_allowed
+                # Sleep outside the lock would be even better to let others schedule, 
+                # but to be simple and prevent double sleeps we sleep inside lock or release it
+                # Let's release the lock and sleep to allow other threads to schedule their next target times concurrently
+                self.lock.release()
+                try:
+                    time.sleep(sleep_time)
+                finally:
+                    self.lock.acquire()
+            else:
+                self.last_request_time = now
+
 
 def resolve_language_code(lang):
     """Resolves language names (e.g. 'spanish') to standard ISO codes (e.g. 'es')."""
