@@ -366,9 +366,51 @@ class DocxTranslatorGUI:
         logging.getLogger().addHandler(self.log_handler)
         logging.getLogger().setLevel(logging.INFO)
         
-        # 4. Action Buttons Frame
+        # 4. Progress Bar Frame
+        self.progress_frame = tk.Frame(self.main_frame, bg=BG_COLOR)
+        self.progress_frame.grid(row=4, column=0, sticky="ew", pady=(0, 10))
+        self.progress_frame.columnconfigure(0, weight=1)
+        
+        # Progress info row (stage text left, percentage right)
+        self.progress_info_frame = tk.Frame(self.progress_frame, bg=BG_COLOR)
+        self.progress_info_frame.grid(row=0, column=0, sticky="ew", pady=(0, 4))
+        self.progress_info_frame.columnconfigure(0, weight=1)
+        
+        self.progress_stage_var = tk.StringVar(value="")
+        self.progress_stage_label = tk.Label(
+            self.progress_info_frame,
+            textvariable=self.progress_stage_var,
+            font=("Segoe UI", 8),
+            fg=TEXT_MUTED,
+            bg=BG_COLOR,
+            anchor="w"
+        )
+        self.progress_stage_label.grid(row=0, column=0, sticky="w")
+        
+        self.progress_pct_var = tk.StringVar(value="")
+        self.progress_pct_label = tk.Label(
+            self.progress_info_frame,
+            textvariable=self.progress_pct_var,
+            font=("Segoe UI", 8, "bold"),
+            fg=ACCENT_COLOR,
+            bg=BG_COLOR,
+            anchor="e"
+        )
+        self.progress_pct_label.grid(row=0, column=1, sticky="e")
+        
+        self.progress_var = tk.DoubleVar(value=0.0)
+        self.progress_bar = ttk.Progressbar(
+            self.progress_frame,
+            variable=self.progress_var,
+            maximum=100,
+            mode="determinate",
+            style="Custom.Horizontal.TProgressbar"
+        )
+        self.progress_bar.grid(row=1, column=0, sticky="ew", ipady=2)
+        
+        # 5. Action Buttons Frame
         self.action_frame = tk.Frame(self.main_frame, bg=BG_COLOR)
-        self.action_frame.grid(row=4, column=0, sticky="ew")
+        self.action_frame.grid(row=5, column=0, sticky="ew")
         
         self.translate_btn = tk.Button(
             self.action_frame, 
@@ -431,6 +473,16 @@ class DocxTranslatorGUI:
             fieldbackground=[("readonly", BG_COLOR)],
             foreground=[("readonly", TEXT_MAIN)],
             arrowcolor=[("readonly", TEXT_MAIN)]
+        )
+        # Progress bar styling
+        self.style.configure(
+            "Custom.Horizontal.TProgressbar",
+            troughcolor=CARD_BG,
+            background=ACCENT_COLOR,
+            darkcolor=ACCENT_COLOR,
+            lightcolor=ACCENT_HOVER,
+            bordercolor=BORDER_COLOR,
+            thickness=8
         )
         self.root.option_add("*TCombobox*Listbox.background", BG_COLOR)
         self.root.option_add("*TCombobox*Listbox.foreground", TEXT_MAIN)
@@ -536,9 +588,16 @@ class DocxTranslatorGUI:
             self.translate_btn.configure(bg="#6b7280")  # Grayed out
             self.status_var.set("Running translation pipeline...")
             self.open_dir_btn.configure(state="disabled")
+            # Reset progress bar
+            self.progress_var.set(0.0)
+            self.progress_pct_var.set("0%")
+            self.progress_stage_var.set("Initializing...")
         else:
             self.translate_btn.configure(bg=SUCCESS_COLOR)
             self.status_var.set("Process finished.")
+            self.progress_var.set(100.0)
+            self.progress_pct_var.set("100%")
+            self.progress_stage_var.set("Complete!")
             if self.last_output_path and os.path.exists(self.last_output_path):
                 self.open_dir_btn.configure(state="normal")
 
@@ -579,13 +638,21 @@ class DocxTranslatorGUI:
             logging.info(f"  Language: {source_lang} -> {target_lang}")
             logging.info(f"  Backend: {backend}")
             
+            def on_progress(current, total, stage_text):
+                if total > 0:
+                    pct = min(100.0, (current / total) * 100)
+                else:
+                    pct = 0.0
+                self.root.after(0, lambda p=pct, s=stage_text: self._update_progress(p, s))
+            
             success = pipeline.translate_document(
                 input_path=input_path,
                 output_path=output_path,
                 column_header=column_header,
                 limit_tables=limit_tables,
                 limit_cells=limit_cells,
-                review_report_path=review_report
+                review_report_path=review_report,
+                progress_callback=on_progress
             )
             
             if success:
@@ -608,6 +675,13 @@ class DocxTranslatorGUI:
                 os.startfile(dir_path)
             except Exception as e:
                 messagebox.showerror("Error", f"Could not open directory: {e}")
+
+    def _update_progress(self, pct, stage_text):
+        """Thread-safe progress bar update called via root.after()."""
+        self.progress_var.set(pct)
+        self.progress_pct_var.set(f"{pct:.0f}%")
+        self.progress_stage_var.set(stage_text)
+
 
 
 def main():
