@@ -1,4 +1,4 @@
-# DOCX Document Translator - Desktop Client
+# DOCX Document Localizer - Desktop Client
 
 An AI-powered document translation and layout preservation tool designed to translate specific columns in DOCX tables (e.g., translation tables exported from **Articulate Storyline** or **Articulate Rise 360**) while preserving the exact layout, styles, and format of the original document.
 
@@ -11,7 +11,7 @@ This branch (`feature/gui-standalone`) introduces a user-friendly **Desktop GUI 
 To run the application without installing Python or setting up a workspace:
 
 1. Navigate to the `dist/` directory.
-2. Double-click **`DOCX_Translator.exe`** to launch the desktop application.
+2. Double-click **`DOCX_Localizer.exe`** to launch the desktop application.
 
 ---
 

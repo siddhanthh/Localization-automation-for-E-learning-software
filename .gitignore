@@ -9,7 +9,7 @@ __pycache__/
 # Distribution / packaging
 build/
 dist/
-!dist/DOCX_Translator.exe
+!dist/DOCX_Localizer.exe
 develop-eggs/
 downloads/
 eggs/

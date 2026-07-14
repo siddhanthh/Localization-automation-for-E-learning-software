@@ -15,7 +15,7 @@ def build_standalone_exe():
         'run_gui.py',                     # Script to bundle
         '--onefile',                       # Package into a single executable
         '--windowed',                      # Hide console window (GUI-only)
-        '--name=DOCX_Translator',         # Output executable name
+        '--name=DOCX_Localizer',         # Output executable name
         '--collect-all=docx',             # Collect all data files, metadata, and binaries for python-docx
         '--collect-all=deep_translator',  # Collect all files for deep_translator
         '--clean',                        # Clean cache before build

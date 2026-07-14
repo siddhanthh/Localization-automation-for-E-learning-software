@@ -56,7 +56,7 @@ class TextHandler(logging.Handler):
 class DocxTranslatorGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("DOCX Document Translator")
+        self.root.title("DOCX Document Localizer")
         self.root.geometry("700x700")
         self.root.minsize(620, 650)
         self.root.configure(bg=BG_COLOR)
@@ -77,7 +77,7 @@ class DocxTranslatorGUI:
         # Header Area
         self.header_label = tk.Label(
             self.main_frame, 
-            text="DOCX DOCUMENT TRANSLATOR", 
+            text="DOCX DOCUMENT LOCALIZER", 
             font=("Segoe UI", 16, "bold"), 
             fg=TEXT_MAIN, 
             bg=BG_COLOR,
