@@ -6,7 +6,7 @@ This branch (`feature/gui-standalone`) introduces a user-friendly **Desktop GUI 
 
 ---
 
-## Quick Start (For Non-Technical Users)
+## Quick Start
 
 To run the application without installing Python or setting up a workspace:
 
