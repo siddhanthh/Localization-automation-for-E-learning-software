@@ -544,7 +544,13 @@ class DocxTranslatorGUI:
 
     def run_pipeline_thread(self, input_path, output_path, target_lang, source_lang, backend, api_key, column_header, test_mode, review_report):
         try:
-            config_path = "config.json"
+            # Resolve paths relative to where the application/exe is running
+            if getattr(sys, 'frozen', False):
+                base_dir = os.path.dirname(sys.executable)
+            else:
+                base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+            config_path = os.path.join(base_dir, "config.json")
             if not os.path.exists(config_path):
                 config_path = None
                 
@@ -559,9 +565,10 @@ class DocxTranslatorGUI:
                 config=config,
                 target_lang=target_lang,
                 source_lang=source_lang,
-                tm_path="translation_memory.json",
-                glossary_path="glossary.json"
+                tm_path=os.path.join(base_dir, "translation_memory.json"),
+                glossary_path=os.path.join(base_dir, "glossary.json")
             )
+
             
             limit_tables = 5 if test_mode else None
             limit_cells = 50 if test_mode else None
