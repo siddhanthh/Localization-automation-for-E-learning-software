@@ -426,6 +426,12 @@ class DocxTranslatorGUI:
             darkcolor=CARD_BG,
             lightcolor=CARD_BG
         )
+        self.style.map(
+            "TCombobox",
+            fieldbackground=[("readonly", BG_COLOR)],
+            foreground=[("readonly", TEXT_MAIN)],
+            arrowcolor=[("readonly", TEXT_MAIN)]
+        )
         self.root.option_add("*TCombobox*Listbox.background", BG_COLOR)
         self.root.option_add("*TCombobox*Listbox.foreground", TEXT_MAIN)
         self.root.option_add("*TCombobox*Listbox.selectBackground", ACCENT_COLOR)
